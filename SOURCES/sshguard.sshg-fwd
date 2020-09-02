@@ -1,0 +1,63 @@
+#!/bin/sh
+# add/remove sshguard chain from firewall
+
+add_chain() {
+    local reload=
+
+    # add ipv4 filter chain
+    if ! firewall-cmd --permanent --direct --query-chain ipv4 filter sshguard &>/dev/null; then
+        echo -n "Add chain 'sshguard' - "
+        firewall-cmd --permanent --direct --add-chain ipv4 filter sshguard
+        reload=1
+    fi
+
+    # add rule to filter all trafic by sshguard
+    if ! firewall-cmd --permanent --direct --query-rule ipv4 filter INPUT_direct 0 -j sshguard &>/dev/null; then
+        echo -n "Add filter to INPUT for sshguard - "
+        firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT_direct 0 -j sshguard
+        reload=1
+    fi
+
+    if [ -n "$reload" ]; then
+        echo -n "Reload firewalld - "
+        firewall-cmd --reload
+    fi
+}
+
+remove_chain() {
+    local reload=
+    # add rule to jump to sshguard
+    if firewall-cmd --permanent --direct --query-rule ipv4 filter INPUT_direct 0 -j sshguard &>/dev/null; then
+        echo -n "Remove filter from INPUT for sshguard - "
+        firewall-cmd --permanent --direct --remove-rule ipv4 filter INPUT_direct 0 -j sshguard
+        reload=1
+    fi
+
+    if firewall-cmd --permanent --direct --query-chain ipv4 filter sshguard &>/dev/null; then
+        echo -n "Remove chain 'sshguard' - "
+        firewall-cmd --permanent --direct --remove-chain ipv4 filter sshguard
+        reload=1
+    fi
+
+    if [ -n "$reload" ]; then
+        echo -n "Reload firewalld - "
+        firewall-cmd --reload
+    fi
+
+}
+
+if ! command -v firewall-cmd &>/dev/null; then
+   echo "error: command not found: firewall-cmd" >&2
+   exit 127
+fi
+
+if [ "$(systemctl is-active firewalld)" != active ]; then
+    echo "error: service firewalld is not running" >&2
+    exit 127
+fi
+
+case "$1" in
+    add) add_chain ;;
+    remove) remove_chain ;;
+    *) echo "usage: $0 <add | remove>"; exit 1;;
+esac

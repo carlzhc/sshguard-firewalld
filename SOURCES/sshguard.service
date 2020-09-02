@@ -1,0 +1,12 @@
+[Unit]
+Description=SSHGuard
+After=network.service
+Before=sshd.service
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/sshguard
+PIDFile=/run/sshguard.pid
+ExecStart=/usr/sbin/sshguard -i /run/sshguard.pid -w $WHITELIST $LOGFILES $ARGS
+
+[Install]
+WantedBy=multi-user.target
